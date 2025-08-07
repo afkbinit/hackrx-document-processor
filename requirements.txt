@@ -6,7 +6,5 @@ google-generativeai==0.8.0
 pydantic==2.7.4
 requests>=2.31.0
 PyPDF2>=3.0.1
-PyMuPDF>=1.23.0
-faiss-cpu>=1.7.2
 numpy>=1.23,<1.26
 scikit-learn>=1.3.0
