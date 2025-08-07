@@ -192,3 +192,4 @@ class EmbeddingService:
             }
             for sim in similarities[:top_k]
         ]
+
