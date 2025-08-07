@@ -1,38 +1,70 @@
-# server/faiss_utils.py
-import faiss
+# server/faiss_utils.py - Simple vector similarity without FAISS
 import numpy as np
-from typing import List
+from typing import List, Tuple, Dict, Any
+from sklearn.metrics.pairwise import cosine_similarity
 
-def create_faiss_index(embeddings: List[List[float]]):
-    """
-    Creates a FAISS index from a list of embeddings (768-d float vectors).
-    Returns the index.
-    """
-    if not embeddings:
-        return None
+
+def create_faiss_index(embeddings: List[List[float]]) -> Dict[str, Any]:
+    """Create a simple index using numpy arrays instead of FAISS"""
+    try:
+        embeddings_array = np.array(embeddings, dtype=np.float32)
         
-    dim = len(embeddings[0])
-    index = faiss.IndexFlatL2(dim)  # L2 = Euclidean distance
+        return {
+            "embeddings": embeddings_array,
+            "dimension": embeddings_array.shape[1] if len(embeddings_array) > 0 else 0,
+            "size": len(embeddings_array)
+        }
+    except Exception as e:
+        print(f"Error creating index: {e}")
+        return {"embeddings": np.array([]), "dimension": 0, "size": 0}
 
-    # Convert to NumPy array of shape (n_chunks, 768)
-    vectors_np = np.array(embeddings).astype("float32")
-    index.add(vectors_np)
 
-    return index
-
-def search_similar_chunks(query_embedding: List[float], index, chunks: List[str], k: int = 5) -> List[str]:
-    """
-    Returns top-k most relevant chunks for a given query embedding.
-    """
-    if not query_embedding or not index or not chunks:
+def search_similar_chunks(
+    index: Dict[str, Any], 
+    query_embedding: List[float], 
+    k: int = 5
+) -> List[Tuple[float, int]]:
+    """Search for similar chunks using cosine similarity instead of FAISS"""
+    try:
+        if index["size"] == 0:
+            return []
+        
+        query_array = np.array([query_embedding], dtype=np.float32)
+        embeddings = index["embeddings"]
+        
+        # Calculate cosine similarity
+        similarities = cosine_similarity(query_array, embeddings)[0]
+        
+        # Get top k most similar indices
+        top_indices = np.argsort(similarities)[::-1][:k]
+        
+        # Return as (similarity_score, index) tuples
+        results = [(float(similarities[idx]), int(idx)) for idx in top_indices]
+        
+        return results
+        
+    except Exception as e:
+        print(f"Error searching similar chunks: {e}")
         return []
+
+
+# Compatibility functions for existing code
+def add_to_index(index: Dict[str, Any], new_embeddings: List[List[float]]) -> Dict[str, Any]:
+    """Add new embeddings to existing index"""
+    try:
+        if index["size"] == 0:
+            return create_faiss_index(new_embeddings)
         
-    query_np = np.array([query_embedding]).astype("float32")
-    distances, indices = index.search(query_np, k)
-
-    results = []
-    for idx in indices[0]:
-        if 0 <= idx < len(chunks):  # Safety check
-            results.append(chunks[idx])
-
-    return results
+        existing_embeddings = index["embeddings"]
+        new_embeddings_array = np.array(new_embeddings, dtype=np.float32)
+        
+        combined_embeddings = np.vstack([existing_embeddings, new_embeddings_array])
+        
+        return {
+            "embeddings": combined_embeddings,
+            "dimension": combined_embeddings.shape[1],
+            "size": len(combined_embeddings)
+        }
+    except Exception as e:
+        print(f"Error adding to index: {e}")
+        return index
