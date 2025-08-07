@@ -2,9 +2,10 @@
 builder = "nixpacks"
 
 [deploy]
-healthcheckPath = "/"
+healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
+startCommand = "python main.py"
 
 [variables]
 PORT = 8000
