@@ -1,30 +1,18 @@
-# main.py - Minimal version for debugging Railway deployment
-import os
+# main.py - Minimal test version
 from fastapi import FastAPI
-from dotenv import load_dotenv
+import uvicorn
+import os
 
-load_dotenv()
-
-app = FastAPI(
-    title="HackRx Test API",
-    version="1.0.0"
-)
+app = FastAPI(title="Railway Test")
 
 @app.get("/")
 async def root():
-    return {"status": "online", "message": "Basic deployment successful"}
+    return {"status": "Railway deployment successful", "message": "Basic FastAPI working"}
 
-@app.get("/api/v1/health")
+@app.get("/health")
 async def health():
-    return {
-        "status": "healthy",
-        "environment_vars": {
-            "gemini_key_present": bool(os.getenv("GEMINI_API_KEY")),
-            "hackrx_token_present": bool(os.getenv("HACKRX_TOKEN"))
-        }
-    }
+    return {"status": "healthy"}
 
 if __name__ == "__main__":
-    import uvicorn
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
