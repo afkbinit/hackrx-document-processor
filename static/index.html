@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HackRx Document Processor - Team BK</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
+            --success-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            --error-gradient: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+            --card-glass: rgba(255, 255, 255, 0.18);
+            --backdrop-blur: blur(20px);
+            --shadow-soft: 0 8px 32px rgba(31, 38, 135, 0.37);
+            --shadow-hover: 0 12px 40px rgba(31, 38, 135, 0.5);
+            --border-glass: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--primary-gradient);
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: #333;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><circle cx="200" cy="200" r="3" fill="rgba(255,255,255,0.1)"/><circle cx="800" cy="300" r="2" fill="rgba(255,255,255,0.15)"/><circle cx="400" cy="600" r="4" fill="rgba(255,255,255,0.08)"/><circle cx="700" cy="700" r="2.5" fill="rgba(255,255,255,0.12)"/></svg>');
+            animation: float 20s infinite linear;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+            100% { transform: translateY(0px) rotate(360deg); }
+        }
+
+        .team-badge {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: var(--backdrop-blur);
+            border: var(--border-glass);
+            padding: 12px 20px;
+            border-radius: 50px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+            box-shadow: var(--shadow-soft);
+            z-index: 1000;
+            animation: slideInRight 1s ease-out;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+            color: white;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .header h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            margin-bottom: 15px;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            background: linear-gradient(45deg, #fff, #f0f8ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header .subtitle {
+            font-size: 1.3rem;
+            opacity: 0.95;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--card-glass);
+            backdrop-filter: var(--backdrop-blur);
+            border: var(--border-glass);
+            padding: 12px 24px;
+            border-radius: 50px;
+            margin-top: 15px;
+            font-size: 1rem;
+            font-weight: 500;
+            box-shadow: var(--shadow-soft);
+            transition: all 0.3s ease;
+        }
+
+        .status-indicator:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #00d2ff, #3a7bd5);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { 
+                opacity: 1; 
+                transform: scale(1);
+            }
+            50% { 
+                opacity: 0.7; 
+                transform: scale(1.1);
+            }
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 968px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+        }
+
+        .card {
+            background: var(--card-glass);
+            backdrop-filter: var(--backdrop-blur);
+            border: var(--border-glass);
+            border-radius: 24px;
+            padding: 35px;
+            box-shadow: var(--shadow-soft);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            animation: slideInUp 0.8s ease-out;
+        }
+
+        @keyframes slideInUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-hover);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .card-header i {
+            font-size: 2.2rem;
+            margin-right: 18px;
+            padding: 18px;
+            border-radius: 18px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .upload-icon { background: linear-gradient(135deg, #ff6b6b, #ee5a24); }
+        .query-icon { background: linear-gradient(135deg, #4834d4, #686de0); }
+        .test-icon { background: linear-gradient(135deg, #00d2d3, #54a0ff); }
+
+        .card-header h3 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #2c3e50;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* Updated: Combined upload section without toggle */
+        .upload-section {
+            margin-bottom: 25px;
+        }
+
+        .upload-section h4 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .upload-section h4 i {
+            color: #667eea;
+            font-size: 1.2rem;
+        }
+
+        /* File upload area */
+        .file-upload-area {
+            border: 2px dashed rgba(102, 126, 234, 0.3);
+            border-radius: 20px;
+            padding: 40px 25px;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-bottom: 25px;
+            background: rgba(248, 249, 250, 0.8);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-upload-area::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            transition: all 0.4s ease;
+            transform: translate(-50%, -50%);
+        }
+
+        .file-upload-area:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .file-upload-area:hover, .file-upload-area.drag-over {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+            transform: scale(1.02);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+        }
+
+        .file-upload-area.file-selected {
+            border-color: #00b894;
+            background: rgba(0, 184, 148, 0.1);
+            border-style: solid;
+        }
+
+        .file-upload-icon {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload-area:hover .file-upload-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .file-upload-text {
+            color: #495057;
+            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .file-upload-subtext {
+            color: #6c757d;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        /* URL input area - always visible */
+        .url-input-area {
+            background: rgba(248, 249, 250, 0.9);
+            border: 2px solid rgba(224, 230, 237, 0.8);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 25px;
+            transition: all 0.3s ease;
+        }
+
+        .url-input-area:focus-within {
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+            background: white;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 15px 18px;
+            border: none;
+            background: transparent;
+            font-size: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: #2c3e50;
+            outline: none;
+        }
+
+        .url-input::placeholder {
+            color: #6c757d;
+            opacity: 0.8;
+        }
+
+        .file-selected-info {
+            display: none;
+            background: rgba(0, 184, 148, 0.15);
+            border: 1px solid rgba(0, 184, 148, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .file-selected-info.show {
+            display: block;
+        }
+
+        .file-selected-info i {
+            color: #00b894;
+            margin-right: 10px;
+        }
+
+        .file-selected-info .file-name {
+            font-weight: 600;
+            color: #155724;
+        }
+
+        .file-selected-info .file-size {
+            font-size: 0.9rem;
+            color: #155724;
+            opacity: 0.8;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            box-shadow: 0 4px 15px rgba(116, 185, 255, 0.4);
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 8px 25px rgba(116, 185, 255, 0.6);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #00b894, #00cec9);
+            box-shadow: 0 4px 15px rgba(0, 184, 148, 0.4);
+        }
+
+        .btn-success:hover {
+            box-shadow: 0 8px 25px rgba(0, 184, 148, 0.6);
+        }
+
+        .textarea {
+            width: 100%;
+            min-height: 160px;
+            border: 2px solid rgba(224, 230, 237, 0.8);
+            border-radius: 16px;
+            padding: 18px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            resize: vertical;
+            transition: all 0.3s ease;
+            background: rgba(248, 249, 250, 0.9);
+            backdrop-filter: blur(10px);
+            line-height: 1.6;
+        }
+
+        .textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+            background: white;
+            transform: scale(1.01);
+        }
+
+        .select {
+            width: 100%;
+            padding: 15px 18px;
+            border: 2px solid rgba(224, 230, 237, 0.8);
+            border-radius: 16px;
+            font-size: 1rem;
+            background: rgba(248, 249, 250, 0.9);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 25px;
+        }
+
+        .select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+            background: white;
+        }
+
+        .result {
+            margin-top: 25px;
+            padding: 25px;
+            border-radius: 18px;
+            font-size: 1rem;
+            line-height: 1.7;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .success {
+            background: var(--success-gradient);
+            border: 1px solid rgba(168, 237, 234, 0.5);
+            color: #0d7377;
+        }
+
+        .error {
+            background: var(--error-gradient);
+            border: 1px solid rgba(255, 154, 158, 0.5);
+            color: #721c24;
+        }
+
+        .info {
+            background: linear-gradient(135deg, #d1ecf1 0%, #b8daff 100%);
+            border: 1px solid rgba(184, 218, 255, 0.5);
+            color: #0c5460;
+        }
+
+        .loading {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border: 1px solid rgba(255, 234, 167, 0.5);
+            color: #856404;
+        }
+
+        .q-a-item {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 14px;
+            margin-bottom: 18px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.08);
+            transition: transform 0.2s ease;
+        }
+
+        .q-a-item:hover {
+            transform: translateX(5px);
+        }
+
+        .question {
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 1.05rem;
+        }
+
+        .answer {
+            color: #4a5568;
+            line-height: 1.7;
+            padding-left: 28px;
+            font-size: 0.98rem;
+        }
+
+        .test-section {
+            grid-column: 1 / -1;
+        }
+
+        .file-info {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 14px;
+            margin: 15px 0;
+            border: 1px solid rgba(224, 230, 237, 0.8);
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            transition: transform 0.2s ease;
+        }
+
+        .file-info:hover {
+            transform: translateY(-2px);
+        }
+
+        .file-info i {
+            font-size: 2.2rem;
+            color: #667eea;
+        }
+
+        .file-details h4 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .file-details p {
+            color: #6c757d;
+            font-size: 0.95rem;
+        }
+
+        .preview-text {
+            background: rgba(248, 249, 250, 0.95);
+            padding: 20px;
+            border-radius: 14px;
+            margin-top: 20px;
+            border: 1px solid rgba(224, 230, 237, 0.8);
+            max-height: 250px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Enhanced responsive design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .card {
+                padding: 25px;
+            }
+            
+            .btn {
+                padding: 12px 24px;
+                font-size: 0.95rem;
+            }
+
+            .header h1 {
+                font-size: 2.2rem;
+            }
+
+            .team-badge {
+                top: 15px;
+                right: 15px;
+                padding: 10px 16px;
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="team-badge">
+        <i class="fas fa-users"></i>
+        Team_BK
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🚀 HackRx Document Processor</h1>
+            <p class="subtitle">AI-Powered Insurance Document Analysis System</p>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span id="connectionStatus">Checking connection...</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Combined Upload Section -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                    <h3>Upload Document</h3>
+                </div>
+                
+                <!-- File Upload Section -->
+                <div class="upload-section">
+                    <h4><i class="fas fa-file-upload"></i>Upload File</h4>
+                    <div class="file-upload-area" id="fileUploadArea" onclick="document.getElementById('fileInput').click()">
+                        <div class="file-upload-icon">
+                            <i class="fas fa-file-upload"></i>
+                        </div>
+                        <div class="file-upload-text">
+                            Click to upload or drag & drop
+                        </div>
+                        <div class="file-upload-subtext">
+                            Support for PDF, DOCX, DOC, TXT files (Max 10MB)
+                        </div>
+                    </div>
+                    <input type="file" id="fileInput" accept=".pdf,.docx,.doc,.txt">
+                </div>
+                
+                <!-- URL Input Section -->
+                <div class="upload-section">
+                    <h4><i class="fas fa-link"></i>Or Enter Document URL</h4>
+                    <div class="url-input-area">
+                        <input type="url" class="url-input" id="documentUrl" 
+                               placeholder="https://example.com/document.pdf or blob URL" 
+                               onchange="validateUrl()">
+                    </div>
+                </div>
+                
+                <div class="file-selected-info" id="fileSelectedInfo">
+                    <i class="fas fa-check-circle"></i>
+                    <span class="file-name" id="selectedFileName"></span>
+                    <span class="file-size" id="selectedFileSize"></span>
+                </div>
+                
+                <button class="btn" id="uploadBtn" onclick="processDocument()">
+                    <i class="fas fa-upload"></i>
+                    Process Document
+                </button>
+                
+                <div id="uploadResult" class="result hidden"></div>
+            </div>
+
+            <!-- Query Section -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-question-circle query-icon"></i>
+                    <h3>Ask Questions</h3>
+                </div>
+                
+                <textarea 
+                    class="textarea" 
+                    id="questions" 
+                    placeholder="Ask your questions here (one per line)..."
+                ></textarea>
+                
+                <select class="select" id="fileSelect">
+                    <option value="">Select uploaded document...</option>
+                </select>
+                
+                <button class="btn btn-secondary" id="queryBtn" onclick="queryDocument()">
+                    <i class="fas fa-search"></i>
+                    Get Answers
+                </button>
+                
+                <div id="queryResult" class="result hidden"></div>
+            </div>
+        </div>
+
+        <!-- Test Section -->
+        <div class="card test-section">
+            <div class="card-header">
+                <i class="fas fa-flask test-icon"></i>
+                <h3>Test with Sample Document</h3>
+            </div>
+            
+            <p style="color: #495057; margin-bottom: 25px; line-height: 1.7; font-size: 1.05rem;">
+                Test your system with the official HackRx competition sample document. 
+                This validates your API against the expected benchmark results.
+            </p>
+            
+            <button class="btn btn-success" id="testBtn" onclick="testHackRxSample()">
+                <i class="fas fa-play"></i>
+                Run Sample Test
+            </button>
+            
+            <div id="sampleResult" class="result hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        // ✅ UPDATED API CONFIGURATION FOR API v1 AND AUTHENTICATION
+        const API_BASE = 'http://localhost:8000/api/v1';
+        const AUTH_TOKEN = '7ea833514442bb719ca788e673cbbc9fbf9555f6fa015252aaaa9679c5744303';
+        
+        let isUploading = false;
+        let isQuerying = false;
+        let isTesting = false;
+        
+        // Check API connection on page load
+        window.addEventListener('load', async () => {
+            await checkApiConnection();
+            await loadFiles();
+        });
+
+        // Clear file selection info
+        function clearFileSelection() {
+            const fileInfo = document.getElementById('fileSelectedInfo');
+            const uploadArea = document.getElementById('fileUploadArea');
+            
+            fileInfo.classList.remove('show');
+            uploadArea.classList.remove('file-selected');
+            uploadArea.querySelector('.file-upload-text').textContent = 'Click to upload or drag & drop';
+            uploadArea.querySelector('.file-upload-icon i').className = 'fas fa-file-upload';
+            
+            // Clear inputs
+            document.getElementById('fileInput').value = '';
+            document.getElementById('documentUrl').value = '';
+        }
+
+        // Validate URL input
+        function validateUrl() {
+            const urlInput = document.getElementById('documentUrl');
+            const url = urlInput.value.trim();
+            const fileInfo = document.getElementById('fileSelectedInfo');
+            const fileName = document.getElementById('selectedFileName');
+            const fileSize = document.getElementById('selectedFileSize');
+            
+            if (url) {
+                try {
+                    const urlObj = new URL(url);
+                    const filename = urlObj.pathname.split('/').pop() || 'document.pdf';
+                    
+                    fileInfo.classList.add('show');
+                    fileName.textContent = filename;
+                    fileSize.textContent = ' (URL)';
+                    
+                    urlInput.style.borderColor = '#00b894';
+                    
+                    // Clear file input when URL is entered
+                    document.getElementById('fileInput').value = '';
+                } catch (error) {
+                    urlInput.style.borderColor = '#ff6b6b';
+                    fileInfo.classList.remove('show');
+                }
+            } else {
+                fileInfo.classList.remove('show');
+                urlInput.style.borderColor = '';
+            }
+        }
+
+        // Enhanced file input handler
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const uploadArea = document.getElementById('fileUploadArea');
+            const fileInfo = document.getElementById('fileSelectedInfo');
+            const fileName = document.getElementById('selectedFileName');
+            const fileSize = document.getElementById('selectedFileSize');
+            
+            if (file) {
+                uploadArea.classList.add('file-selected');
+                fileInfo.classList.add('show');
+                fileName.textContent = file.name;
+                fileSize.textContent = ` (${formatFileSize(file.size)})`;
+                
+                // Update upload area text
+                uploadArea.querySelector('.file-upload-text').textContent = 'File selected - Click to change';
+                uploadArea.querySelector('.file-upload-icon i').className = 'fas fa-file-check';
+                
+                // Clear URL input when file is selected
+                document.getElementById('documentUrl').value = '';
+            }
+        });
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // API connection check with authentication
+        async function checkApiConnection() {
+            const statusElement = document.getElementById('connectionStatus');
+            try {
+                const response = await fetch(`${API_BASE}/health`, { 
+                    method: 'GET',
+                    headers: { 
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    }
+                });
+                
+                if (response.ok) {
+                    statusElement.innerHTML = '✅ API Connected (v1)';
+                    statusElement.parentElement.style.background = 'rgba(0, 184, 148, 0.3)';
+                } else {
+                    throw new Error('API not responding');
+                }
+            } catch (error) {
+                statusElement.innerHTML = '❌ API Disconnected';
+                statusElement.parentElement.style.background = 'rgba(255, 107, 107, 0.3)';
+                console.error('API connection failed:', error);
+            }
+        }
+
+        // Enhanced drag and drop functionality
+        const uploadArea = document.querySelector('.file-upload-area');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('fileInput').files = files;
+                // Trigger change event manually
+                const event = new Event('change', { bubbles: true });
+                document.getElementById('fileInput').dispatchEvent(event);
+            }
+        });
+
+        // Smart document processing function
+        async function processDocument() {
+            if (isUploading) return;
+            
+            const fileInput = document.getElementById('fileInput');
+            const urlInput = document.getElementById('documentUrl');
+            const file = fileInput.files[0];
+            const url = urlInput.value.trim();
+            
+            if (file) {
+                await uploadFile(file);
+            } else if (url) {
+                await processUrl(url);
+            } else {
+                const resultDiv = document.getElementById('uploadResult');
+                showResult(resultDiv, 'Please select a file or enter a URL!', 'error');
+            }
+        }
+
+        // File upload function with DOCX support
+        async function uploadFile(file) {
+            const resultDiv = document.getElementById('uploadResult');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            // Validate file types including DOCX
+            const allowedTypes = ['pdf', 'docx', 'doc', 'txt'];
+            const fileExtension = file.name.toLowerCase().split('.').pop();
+            
+            if (!allowedTypes.includes(fileExtension)) {
+                showResult(resultDiv, `Unsupported file type: ${fileExtension}. Please upload PDF, DOCX, DOC, or TXT files.`, 'error');
+                return;
+            }
+            
+            if (file.size > 10 * 1024 * 1024) {
+                showResult(resultDiv, 'File size too large. Please select a file under 10MB.', 'error');
+                return;
+            }
+            
+            isUploading = true;
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<div class="spinner"></div> Processing...';
+            
+            showResult(resultDiv, 'Uploading and processing document...', 'loading');
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Upload failed: ${errorText}`);
+                }
+                
+                const result = await response.json();
+                
+                const successHtml = `
+                    <div class="file-info">
+                        <i class="fas fa-file-alt"></i>
+                        <div class="file-details">
+                            <h4>${result.filename}</h4>
+                            <p>Type: ${result.file_type.toUpperCase()} • Successfully processed • ${formatFileSize(file.size)}</p>
+                        </div>
+                    </div>
+                    <div class="preview-text">
+                        <strong>📄 Document Preview:</strong><br><br>
+                        ${result.text_preview}
+                    </div>
+                `;
+                
+                showResult(resultDiv, successHtml, 'success');
+                await loadFiles();
+                
+            } catch (error) {
+                console.error('Upload error:', error);
+                showResult(resultDiv, `Upload failed: ${error.message}. Make sure your API is running on localhost:8000 with proper authentication.`, 'error');
+            } finally {
+                isUploading = false;
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="fas fa-upload"></i> Process Document';
+            }
+        }
+
+        // Process URL function
+        async function processUrl(url) {
+            const resultDiv = document.getElementById('uploadResult');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            // Basic URL validation
+            try {
+                new URL(url);
+            } catch {
+                showResult(resultDiv, 'Please enter a valid URL!', 'error');
+                return;
+            }
+            
+            isUploading = true;
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<div class="spinner"></div> Processing URL...';
+            
+            showResult(resultDiv, 'Downloading and processing document from URL...', 'loading');
+            
+            // Create a temporary file ID for URL processing
+            const urlFileId = `url_${Date.now()}_${url.split('/').pop() || 'document.pdf'}`;
+            
+            try {
+                // For URLs, we'll use the hackrx/run endpoint directly for processing
+                const questions = ['Document processed from URL']; // Dummy question for processing
+                const response = await fetch(`${API_BASE}/hackrx/run`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        documents: url,
+                        questions: questions
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`URL processing failed: ${errorText}`);
+                }
+                
+                const result = await response.json();
+                
+                // Add to uploaded documents list for querying
+                const mockFileData = {
+                    file_id: urlFileId,
+                    filename: url.split('/').pop() || 'document.pdf',
+                    file_type: 'PDF (URL)',
+                    upload_time: Date.now() / 1000,
+                    text_length: result.answers[0] ? result.answers[0].length : 0,
+                    is_url: true,
+                    url: url
+                };
+                
+                // Add to files dropdown
+                const select = document.getElementById('fileSelect');
+                const option = document.createElement('option');
+                option.value = urlFileId;
+                option.textContent = `${mockFileData.filename} (URL)`;
+                option.setAttribute('data-url', url);
+                select.appendChild(option);
+                
+                const successHtml = `
+                    <div class="file-info">
+                        <i class="fas fa-link"></i>
+                        <div class="file-details">
+                            <h4>${mockFileData.filename}</h4>
+                            <p>Type: PDF (URL) • Successfully processed from URL</p>
+                        </div>
+                    </div>
+                    <div class="preview-text">
+                        <strong>🔗 Document URL:</strong><br><br>
+                        ${url}<br><br>
+                        <strong>Status:</strong> Ready for querying
+                    </div>
+                `;
+                
+                showResult(resultDiv, successHtml, 'success');
+                
+            } catch (error) {
+                console.error('URL processing error:', error);
+                showResult(resultDiv, `URL processing failed: ${error.message}. Make sure the URL is accessible and your API has proper authentication.`, 'error');
+            } finally {
+                isUploading = false;
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="fas fa-upload"></i> Process Document';
+            }
+        }
+        
+        // Query document function
+        async function queryDocument() {
+            if (isQuerying) return;
+            
+            const questions = document.getElementById('questions').value;
+            const fileSelect = document.getElementById('fileSelect');
+            const fileId = fileSelect.value;
+            const selectedOption = fileSelect.selectedOptions[0];
+            const resultDiv = document.getElementById('queryResult');
+            const queryBtn = document.getElementById('queryBtn');
+            
+            if (!fileId) {
+                showResult(resultDiv, 'Please select an uploaded document first!', 'error');
+                return;
+            }
+            
+            if (!questions.trim()) {
+                showResult(resultDiv, 'Please enter some questions!', 'error');
+                return;
+            }
+            
+            isQuerying = true;
+            queryBtn.disabled = true;
+            queryBtn.innerHTML = '<div class="spinner"></div> Processing...';
+            
+            showResult(resultDiv, 'Analyzing document and generating answers...', 'loading');
+            
+            const questionList = questions.split('\n').filter(q => q.trim());
+            
+            try {
+                let response;
+                
+                // Check if this is a URL-based document
+                if (selectedOption && selectedOption.hasAttribute('data-url')) {
+                    // Use hackrx/run endpoint for URL documents with auth
+                    const documentUrl = selectedOption.getAttribute('data-url');
+                    response = await fetch(`${API_BASE}/hackrx/run`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${AUTH_TOKEN}`
+                        },
+                        body: JSON.stringify({
+                            documents: documentUrl,
+                            questions: questionList
+                        })
+                    });
+                } else {
+                    // Use query-uploaded endpoint for uploaded files
+                    const formData = new FormData();
+                    formData.append('file_id', fileId);
+                    formData.append('questions', JSON.stringify(questionList));
+                    
+                    response = await fetch(`${API_BASE}/query-uploaded`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Query failed: ${errorText}`);
+                }
+                
+                const result = await response.json();
+                
+                let html = '<h4>📋 Analysis Results:</h4>';
+                questionList.forEach((question, index) => {
+                    html += `
+                        <div class="q-a-item">
+                            <div class="question">
+                                <i class="fas fa-question-circle"></i>
+                                ${question}
+                            </div>
+                            <div class="answer">
+                                ${result.answers[index] || 'No answer provided'}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                showResult(resultDiv, html, 'success');
+                
+            } catch (error) {
+                console.error('Query error:', error);
+                showResult(resultDiv, `Query processing failed: ${error.message}`, 'error');
+            } finally {
+                isQuerying = false;
+                queryBtn.disabled = false;
+                queryBtn.innerHTML = '<i class="fas fa-search"></i> Get Answers';
+            }
+        }
+        
+        // HackRx sample test with authentication
+        async function testHackRxSample() {
+            if (isTesting) return;
+            
+            const resultDiv = document.getElementById('sampleResult');
+            const testBtn = document.getElementById('testBtn');
+            
+            isTesting = true;
+            testBtn.disabled = true;
+            testBtn.innerHTML = '<div class="spinner"></div> Testing...';
+            
+            showResult(resultDiv, 'Running benchmark test with official HackRx sample document...', 'loading');
+            
+            const sampleRequest = {
+                documents: "https://hackrx.blob.core.windows.net/assets/policy.pdf?sv=2023-01-03&st=2025-07-04T09%3A11%3A24Z&se=2027-07-05T09%3A11%3A00Z&sr=b&sp=r&sig=N4a9OU0w0QXO6AOIBiu4bpl7AXvEZogeT%2FjUHNO7HzQ%3D",
+                questions: [
+                    "What is the grace period for premium payment under the National Parivar Mediclaim Plus Policy?",
+                    "What is the waiting period for pre-existing diseases (PED) to be covered?",
+                    "Does this policy cover maternity expenses, and what are the conditions?",
+                    "What is the waiting period for cataract surgery?",
+                    "Are the medical expenses for an organ donor covered under this policy?"
+                ]
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/hackrx/run`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    },
+                    body: JSON.stringify(sampleRequest)
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Test failed: ${errorText}`);
+                }
+                
+                const result = await response.json();
+                
+                let html = '<h4>🎯 Benchmark Test Results:</h4>';
+                sampleRequest.questions.forEach((question, index) => {
+                    html += `
+                        <div class="q-a-item">
+                            <div class="question">
+                                <i class="fas fa-flask"></i>
+                                ${question}
+                            </div>
+                            <div class="answer">
+                                ${result.answers[index] || 'No answer provided'}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                showResult(resultDiv, html, 'success');
+                
+            } catch (error) {
+                console.error('Sample test error:', error);
+                showResult(resultDiv, `Benchmark test failed: ${error.message}. Check your API authentication and connectivity.`, 'error');
+            } finally {
+                isTesting = false;
+                testBtn.disabled = false;
+                testBtn.innerHTML = '<i class="fas fa-play"></i> Run Sample Test';
+            }
+        }
+        
+        // Load files with authentication
+        async function loadFiles() {
+            try {
+                const response = await fetch(`${API_BASE}/files`, {
+                    headers: {
+                        'Authorization': `Bearer ${AUTH_TOKEN}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    console.log('Could not load files list (may not be implemented with auth)');
+                    return;
+                }
+                
+                const result = await response.json();
+                const select = document.getElementById('fileSelect');
+                
+                // Keep existing URL-based options
+                const urlOptions = Array.from(select.options).filter(option => 
+                    option.hasAttribute('data-url')
+                );
+                
+                select.innerHTML = '<option value="">Select uploaded document...</option>';
+                
+                // Re-add URL options
+                urlOptions.forEach(option => select.appendChild(option));
+                
+                // Add uploaded files
+                if (result.uploaded_files && result.uploaded_files.length > 0) {
+                    result.uploaded_files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file.file_id;
+                        option.textContent = `${file.filename} (${file.file_type.toUpperCase()})`;
+                        select.appendChild(option);
+                    });
+                }
+                
+            } catch (error) {
+                console.log('Error loading files:', error);
+            }
+        }
+        
+        function showResult(element, content, type) {
+            element.innerHTML = content;
+            element.className = `result ${type}`;
+            element.classList.remove('hidden');
+            
+            element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+</html>

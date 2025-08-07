@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  hackrx-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
+    volumes:
+      - .:/app
+    restart: unless-stopped
