@@ -1,0 +1,8 @@
+[variables]
+  NIXPACKS_BUILD_APT_DEPS = "build-essential gcc g++"
+
+[providers]
+  python = "3.11"
+
+[build]
+  cmd = "pip install --upgrade pip && pip install -r requirements.txt"
