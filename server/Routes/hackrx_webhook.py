@@ -12,6 +12,10 @@ from server.chunker import smart_chunk_text
 from server.faiss_utils import create_faiss_index, search_similar_chunks
 from server.gemini_utils import get_simple_answer, batch_get_embeddings, filter_relevant_chunks
 from config import Config
+# server/Routes/hackrx_webhook.py
+# Update the import to handle the PyPDF2 version
+from server.pdf_utils import extract_text_from_pdf_url
+
 
 # Setup
 logging.basicConfig(level=logging.INFO)
