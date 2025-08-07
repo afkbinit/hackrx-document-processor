@@ -39,7 +39,6 @@ except Exception as e:
     print(f"❌ Unexpected error initializing Gemini: {e}")
     GENAI_AVAILABLE = False
 
-
 def get_text_embedding(text: str) -> List[float]:
     """Get embedding for text using Google Generative AI - Optimized"""
     if not GENAI_AVAILABLE:
@@ -67,13 +66,31 @@ def get_text_embedding(text: str) -> List[float]:
         except Exception as e2:
             return []
 
-
 def get_simple_answer(query: str, relevant_chunks: List[str]) -> str:
-    """Get concise, accurate answer using Google Generative AI"""
+    """Get concise, accurate answer using Google Generative AI - FIXED for tuple handling"""
     if not GENAI_AVAILABLE:
         return fallback_answer_extraction(query, "\n\n".join(relevant_chunks))
     
-    context = "\n\n".join(relevant_chunks)
+    # ✅ CRITICAL FIX: Ensure chunks are strings, not tuples
+    safe_chunks = []
+    for i, chunk in enumerate(relevant_chunks):
+        try:
+            if isinstance(chunk, tuple):
+                # If it's a tuple, extract the text (usually the second element)
+                text_content = str(chunk[1]) if len(chunk) > 1 else str(chunk[0])
+                safe_chunks.append(text_content)
+                logger.warning(f"Converted tuple to string at chunk index {i}")
+            elif isinstance(chunk, str):
+                safe_chunks.append(chunk)
+            else:
+                safe_chunks.append(str(chunk))
+                logger.warning(f"Converted {type(chunk)} to string at chunk index {i}")
+        except Exception as chunk_error:
+            logger.error(f"Error processing chunk {i}: {chunk_error}")
+            safe_chunks.append("Error processing chunk")
+    
+    # ✅ SAFE JOIN: Use the converted strings
+    context = "\n\n".join(safe_chunks)
     
     # Optimized prompt for insurance policy questions
     prompt = f"""You are an expert insurance policy analyst. Answer based ONLY on the provided policy document.
@@ -115,7 +132,6 @@ ANSWER:"""
     except Exception as e:
         logger.error(f"Error generating answer: {e}")
         return fallback_answer_extraction(query, context)
-
 
 def fallback_answer_extraction(question: str, context: str) -> str:
     """Enhanced fallback with insurance-specific patterns"""
@@ -233,7 +249,6 @@ def fallback_answer_extraction(question: str, context: str) -> str:
     
     return "Information not found in the provided document."
 
-
 def filter_relevant_chunks(chunks: List[str], questions: List[str]) -> List[str]:
     """Pre-filter chunks based on keyword relevance - Performance optimization"""
     # Extract keywords from all questions
@@ -256,7 +271,6 @@ def filter_relevant_chunks(chunks: List[str], questions: List[str]) -> List[str]
     
     # Return top 40 chunks maximum
     return [chunk for chunk, _ in relevant_chunks[:40]]
-
 
 def batch_get_embeddings(texts: List[str]) -> List[List[float]]:
     """Optimized batch embedding processing"""

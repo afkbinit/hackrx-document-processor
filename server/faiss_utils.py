@@ -1,70 +1,59 @@
-# server/faiss_utils.py - Simple vector similarity without FAISS
+# server/faiss_utils.py - Original version with FAISS
+import faiss
 import numpy as np
 from typing import List, Tuple, Dict, Any
-from sklearn.metrics.pairwise import cosine_similarity
 
 
-def create_faiss_index(embeddings: List[List[float]]) -> Dict[str, Any]:
-    """Create a simple index using numpy arrays instead of FAISS"""
+def create_faiss_index(embeddings: List[List[float]]) -> faiss.Index:
+    """Create FAISS index for similarity search"""
     try:
+        if not embeddings:
+            return None
+            
         embeddings_array = np.array(embeddings, dtype=np.float32)
+        dimension = embeddings_array.shape[1]
         
-        return {
-            "embeddings": embeddings_array,
-            "dimension": embeddings_array.shape[1] if len(embeddings_array) > 0 else 0,
-            "size": len(embeddings_array)
-        }
+        # Create index
+        index = faiss.IndexFlatIP(dimension)  # Inner product index
+        
+        # Normalize embeddings for cosine similarity
+        faiss.normalize_L2(embeddings_array)
+        
+        # Add embeddings to index
+        index.add(embeddings_array)
+        
+        return index
+        
     except Exception as e:
-        print(f"Error creating index: {e}")
-        return {"embeddings": np.array([]), "dimension": 0, "size": 0}
+        print(f"Error creating FAISS index: {e}")
+        return None
 
 
 def search_similar_chunks(
-    index: Dict[str, Any], 
     query_embedding: List[float], 
+    index: faiss.Index, 
+    chunks: List[str], 
     k: int = 5
-) -> List[Tuple[float, int]]:
-    """Search for similar chunks using cosine similarity instead of FAISS"""
+) -> List[str]:
+    """Search for similar chunks using FAISS"""
     try:
-        if index["size"] == 0:
+        if index is None or not chunks:
             return []
-        
+            
         query_array = np.array([query_embedding], dtype=np.float32)
-        embeddings = index["embeddings"]
+        faiss.normalize_L2(query_array)
         
-        # Calculate cosine similarity
-        similarities = cosine_similarity(query_array, embeddings)[0]
+        # Search
+        scores, indices = index.search(query_array, min(k, len(chunks)))
         
-        # Get top k most similar indices
-        top_indices = np.argsort(similarities)[::-1][:k]
+        # Return actual text chunks
+        similar_chunks = []
+        for idx in indices[0]:
+            if 0 <= idx < len(chunks):
+                similar_chunks.append(chunks[idx])
         
-        # Return as (similarity_score, index) tuples
-        results = [(float(similarities[idx]), int(idx)) for idx in top_indices]
-        
-        return results
+        return similar_chunks
         
     except Exception as e:
         print(f"Error searching similar chunks: {e}")
         return []
-
-
-# Compatibility functions for existing code
-def add_to_index(index: Dict[str, Any], new_embeddings: List[List[float]]) -> Dict[str, Any]:
-    """Add new embeddings to existing index"""
-    try:
-        if index["size"] == 0:
-            return create_faiss_index(new_embeddings)
-        
-        existing_embeddings = index["embeddings"]
-        new_embeddings_array = np.array(new_embeddings, dtype=np.float32)
-        
-        combined_embeddings = np.vstack([existing_embeddings, new_embeddings_array])
-        
-        return {
-            "embeddings": combined_embeddings,
-            "dimension": combined_embeddings.shape[1],
-            "size": len(combined_embeddings)
-        }
-    except Exception as e:
-        print(f"Error adding to index: {e}")
-        return index
