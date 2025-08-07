@@ -1,55 +1,50 @@
-# server/faiss_utils.py - Original version with FAISS
-import faiss
+# server/faiss_utils.py - Railway compatible version without FAISS
 import numpy as np
 from typing import List, Tuple, Dict, Any
+from sklearn.metrics.pairwise import cosine_similarity
 
-
-def create_faiss_index(embeddings: List[List[float]]) -> faiss.Index:
-    """Create FAISS index for similarity search"""
+def create_faiss_index(embeddings: List[List[float]]) -> Dict[str, Any]:
+    """Create a simple index using numpy arrays (Railway compatible)"""
     try:
         if not embeddings:
             return None
             
         embeddings_array = np.array(embeddings, dtype=np.float32)
-        dimension = embeddings_array.shape[1]
         
-        # Create index
-        index = faiss.IndexFlatIP(dimension)  # Inner product index
-        
-        # Normalize embeddings for cosine similarity
-        faiss.normalize_L2(embeddings_array)
-        
-        # Add embeddings to index
-        index.add(embeddings_array)
-        
-        return index
+        return {
+            "embeddings": embeddings_array,
+            "dimension": embeddings_array.shape[1],
+            "size": len(embeddings_array)
+        }
         
     except Exception as e:
-        print(f"Error creating FAISS index: {e}")
+        print(f"Error creating index: {e}")
         return None
-
 
 def search_similar_chunks(
     query_embedding: List[float], 
-    index: faiss.Index, 
+    index: Dict[str, Any], 
     chunks: List[str], 
     k: int = 5
 ) -> List[str]:
-    """Search for similar chunks using FAISS"""
+    """Search for similar chunks using cosine similarity (Railway compatible)"""
     try:
-        if index is None or not chunks:
+        if index is None or not chunks or index["size"] == 0:
             return []
             
         query_array = np.array([query_embedding], dtype=np.float32)
-        faiss.normalize_L2(query_array)
+        embeddings = index["embeddings"]
         
-        # Search
-        scores, indices = index.search(query_array, min(k, len(chunks)))
+        # Calculate cosine similarity
+        similarities = cosine_similarity(query_array, embeddings)[0]
+        
+        # Get top k most similar indices
+        top_indices = np.argsort(similarities)[::-1][:k]
         
         # Return actual text chunks
         similar_chunks = []
-        for idx in indices[0]:
-            if 0 <= idx < len(chunks):
+        for idx in top_indices:
+            if 0 <= idx < len(chunks) and similarities[idx] > 0.3:  # Similarity threshold
                 similar_chunks.append(chunks[idx])
         
         return similar_chunks

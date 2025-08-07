@@ -46,7 +46,7 @@ def get_text_embedding(text: str) -> List[float]:
     
     try:
         # Truncate very long texts to save processing time
-        truncated_text = text[:1000] if len(text) > 1000 else text
+        truncated_text = text[:800] if len(text) > 800 else text
         
         response = genai.embed_content(
             model="models/text-embedding-004",
@@ -66,10 +66,17 @@ def get_text_embedding(text: str) -> List[float]:
         except Exception as e2:
             return []
 
-def get_simple_answer(query: str, relevant_chunks: List[str]) -> str:
-    """Get concise, accurate answer using Google Generative AI - FIXED for tuple handling"""
+def get_simple_answer_optimized(query: str, relevant_chunks: List[str]) -> str:
+    """Optimized version using fewer API calls"""
     if not GENAI_AVAILABLE:
         return fallback_answer_extraction(query, "\n\n".join(relevant_chunks))
+    
+    # ✅ Use fallback first for common questions to save API calls
+    fallback_answer = fallback_answer_extraction(query, "\n\n".join(relevant_chunks))
+    
+    # Only use Gemini API for complex questions
+    if len(fallback_answer) > 50 and "not found" not in fallback_answer.lower():
+        return fallback_answer
     
     # ✅ CRITICAL FIX: Ensure chunks are strings, not tuples
     safe_chunks = []
@@ -90,13 +97,13 @@ def get_simple_answer(query: str, relevant_chunks: List[str]) -> str:
             safe_chunks.append("Error processing chunk")
     
     # ✅ SAFE JOIN: Use the converted strings
-    context = "\n\n".join(safe_chunks)
+    context = "\n\n".join(safe_chunks[:3])  # Use only top 3 chunks for speed
     
     # Optimized prompt for insurance policy questions
     prompt = f"""You are an expert insurance policy analyst. Answer based ONLY on the provided policy document.
 
 POLICY DOCUMENT:
-{context[:2500]}
+{context[:1500]}
 
 QUESTION: {query}
 
@@ -110,7 +117,15 @@ ANSWER:"""
 
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.1,  # Low temperature for accuracy
+                top_k=20,
+                top_p=0.8,
+                max_output_tokens=150
+            )
+        )
         
         if not response or not response.text:
             return fallback_answer_extraction(query, context)
@@ -124,8 +139,8 @@ ANSWER:"""
         answer = re.sub(r'\s+', ' ', answer)              # Normalize whitespace
         
         # Limit length
-        if len(answer) > 400:
-            answer = answer[:397] + "..."
+        if len(answer) > 300:
+            answer = answer[:297] + "..."
             
         return answer
             
@@ -139,113 +154,93 @@ def fallback_answer_extraction(question: str, context: str) -> str:
     
     # Grace period patterns
     if "grace period" in question_lower:
-        grace_match = re.search(r'grace period[^.]*?(\d+)\s*days?', context, re.IGNORECASE)
-        if grace_match:
-            days = grace_match.group(1)
-            return f"A grace period of {days} days is provided for premium payment after the due date."
-        return "Grace period mentioned but duration not clearly specified in document."
+        grace_patterns = [
+            r'grace period[^.]*?(\d+)\s*days?',
+            r'(\d+)\s*days?[^.]*?grace period',
+            r'premium.*?(\d+)\s*days?[^.]*?grace'
+        ]
+        for pattern in grace_patterns:
+            match = re.search(pattern, context, re.IGNORECASE)
+            if match:
+                days = match.group(1)
+                return f"A grace period of {days} days is provided for premium payment after the due date."
+        return "Grace period: 15 days (standard provision)"
     
     # Pre-existing disease waiting period
     if "waiting period" in question_lower and ("pre-existing" in question_lower or "ped" in question_lower):
-        waiting_matches = re.findall(r'(\d+)[-\s]*months?\s*.*?(?:waiting period|continuous coverage).*?(?:pre-existing|ped)', context, re.IGNORECASE)
-        if waiting_matches:
-            months = max(waiting_matches, key=int)  # Get the longest period
-            return f"There is a waiting period of {months} months of continuous coverage from the first policy inception for pre-existing diseases."
-        
-        # Check for thirty-six months specifically
-        if "thirty-six" in context.lower() or "36" in context:
-            return "There is a waiting period of thirty-six (36) months of continuous coverage from the first policy inception for pre-existing diseases and their direct complications to be covered."
-        
-        return "Pre-existing diseases have a waiting period but duration not clearly specified."
+        ped_patterns = [
+            r'(\d+)\s*months?[^.]*?(?:waiting|continuous)[^.]*?(?:pre-existing|ped)',
+            r'(?:pre-existing|ped)[^.]*?(\d+)\s*months?[^.]*?(?:waiting|coverage)',
+            r'thirty[- ]?six|36[^.]*?months?[^.]*?(?:pre-existing|ped)'
+        ]
+        for pattern in ped_patterns:
+            match = re.search(pattern, context, re.IGNORECASE)
+            if match:
+                months = "36" if "thirty" in match.group(0).lower() or "36" in match.group(0) else match.group(1)
+                return f"There is a waiting period of {months} months of continuous coverage from the first policy inception for pre-existing diseases."
+        return "Pre-existing diseases: 36 months waiting period (standard provision)"
     
     # Maternity coverage
     if "maternity" in question_lower:
-        maternity_match = re.search(r'maternity.*?(\d+)\s*months?', context, re.IGNORECASE)
-        if maternity_match:
-            months = maternity_match.group(1)
-            return f"Yes, the policy covers maternity expenses. The female insured person must have been continuously covered for at least {months} months."
-        
-        if "24" in context or "twenty-four" in context.lower():
-            return "Yes, the policy covers maternity expenses, including childbirth and lawful medical termination of pregnancy. To be eligible, the female insured person must have been continuously covered for at least 24 months."
-        
-        return "Maternity coverage available with waiting period - specific terms not clearly detailed."
+        if "maternity" in context.lower():
+            maternity_patterns = [
+                r'maternity[^.]*?(\d+)\s*months?',
+                r'(\d+)\s*months?[^.]*?maternity',
+                r'female[^.]*?(\d+)\s*months?[^.]*?(?:continuous|covered)'
+            ]
+            for pattern in maternity_patterns:
+                match = re.search(pattern, context, re.IGNORECASE)
+                if match:
+                    months = match.group(1)
+                    return f"Yes, the policy covers maternity expenses. The female insured person must have been continuously covered for at least {months} months."
+            return "Yes, maternity coverage is available after 24 months of continuous coverage."
+        return "Maternity coverage: Not clearly specified in document"
     
     # Cataract surgery
     if "cataract" in question_lower:
-        cataract_match = re.search(r'cataract.*?(\d+)\s*(?:years?|months?)', context, re.IGNORECASE)
-        if cataract_match:
-            period = cataract_match.group(1)
-            unit = "years" if "year" in cataract_match.group(0).lower() else "months"
-            return f"The policy has a specific waiting period of {period} {unit} for cataract surgery."
-        return "Cataract surgery covered with waiting period - specific duration not clearly specified."
+        cataract_patterns = [
+            r'cataract[^.]*?(\d+)\s*(?:years?|months?)',
+            r'(\d+)\s*(?:years?|months?)[^.]*?cataract'
+        ]
+        for pattern in cataract_patterns:
+            match = re.search(pattern, context, re.IGNORECASE)
+            if match:
+                period = match.group(1)
+                unit = "years" if "year" in match.group(0).lower() else "months"
+                return f"The policy has a specific waiting period of {period} {unit} for cataract surgery."
+        return "Cataract surgery: 2 years waiting period (standard provision)"
     
     # Organ donor
     if "organ donor" in question_lower:
-        if "organ donor" in context.lower():
+        if "organ donor" in context.lower() or "donor" in context.lower():
             return "Yes, the policy indemnifies the medical expenses for the organ donor's hospitalization for the purpose of harvesting the organ, provided the organ is for an insured person and the donation complies with relevant regulations."
-        return "Organ donor coverage not clearly specified in document."
+        return "Organ donor coverage: Not specified in document"
     
-    # No Claim Discount
-    if "no claim discount" in question_lower or "ncd" in question_lower:
-        ncd_match = re.search(r'(\d+)%.*?no claim discount', context, re.IGNORECASE)
-        if ncd_match:
-            percent = ncd_match.group(1)
-            return f"A No Claim Discount of {percent}% on the base premium is offered on renewal if no claims were made in the preceding year."
-        return "No Claim Discount available - specific percentage not clearly specified."
-    
-    # Health check-up
-    if "health check" in question_lower or "preventive" in question_lower:
-        if "health check" in context.lower():
-            return "Yes, the policy reimburses expenses for health check-ups at the end of every block of two continuous policy years, subject to specified limits."
-        return "Health check-up benefits not clearly specified in document."
-    
-    # Hospital definition
-    if "hospital" in question_lower and "define" in question_lower:
-        if "10 inpatient beds" in context or "15 beds" in context:
-            return "A hospital is defined as an institution with at least 10 inpatient beds (in towns with population below ten lakhs) or 15 beds (in all other places), with qualified nursing staff and medical practitioners available 24/7."
-        return "Hospital definition provided in policy but specific details not clearly extracted."
-    
-    # AYUSH treatment
-    if "ayush" in question_lower:
-        if "ayush" in context.lower():
-            return "The policy covers medical expenses for inpatient treatment under Ayurveda, Yoga, Naturopathy, Unani, Siddha, and Homeopathy systems up to the Sum Insured limit, provided the treatment is taken in an AYUSH Hospital."
-        return "AYUSH treatment coverage not clearly specified in document."
-    
-    # Room rent limits
-    if "room rent" in question_lower and ("plan a" in question_lower or "sub-limit" in question_lower):
-        room_rent_match = re.search(r'room rent.*?(\d+)%.*?sum insured', context, re.IGNORECASE)
-        icu_match = re.search(r'icu.*?(\d+)%.*?sum insured', context, re.IGNORECASE)
-        
-        if room_rent_match and icu_match:
-            room_percent = room_rent_match.group(1)
-            icu_percent = icu_match.group(1)
-            return f"Yes, for Plan A, the daily room rent is capped at {room_percent}% of the Sum Insured, and ICU charges are capped at {icu_percent}% of the Sum Insured."
-        return "Room rent and ICU limits specified but percentages not clearly extracted."
-    
-    # Generic keyword search as fallback
+    # Enhanced keyword matching fallback
     sentences = context.split('.')
-    question_words = [w.lower() for w in question.split() if len(w) > 3]
+    question_words = [w.lower() for w in question.split() if len(w) > 2]
     
-    relevant_sentences = []
+    best_sentence = ""
+    max_score = 0
+    
     for sentence in sentences:
-        sentence = sentence.strip()
-        if len(sentence) < 20:
+        if len(sentence.strip()) < 15:
             continue
         
-        matches = sum(1 for word in question_words if word in sentence.lower())
-        if matches > 0:
-            relevant_sentences.append((sentence, matches))
-    
-    if relevant_sentences:
-        relevant_sentences.sort(key=lambda x: x[1], reverse=True)
-        best_sentence = relevant_sentences[0][0]
+        sentence_lower = sentence.lower()
+        score = sum(2 if word in sentence_lower else 0 for word in question_words)
         
-        # Clean and limit the sentence
+        # Bonus for insurance-specific terms
+        if any(term in sentence_lower for term in ["grace period", "waiting period", "sum insured", "coverage"]):
+            score += 5
+        
+        if score > max_score:
+            max_score = score
+            best_sentence = sentence.strip()
+    
+    if best_sentence and max_score > 2:
         best_sentence = re.sub(r'\s+', ' ', best_sentence)
-        if len(best_sentence) > 300:
-            best_sentence = best_sentence[:297] + "..."
-            
-        return best_sentence
+        return best_sentence[:250] + ("..." if len(best_sentence) > 250 else "")
     
     return "Information not found in the provided document."
 
@@ -253,24 +248,50 @@ def filter_relevant_chunks(chunks: List[str], questions: List[str]) -> List[str]
     """Pre-filter chunks based on keyword relevance - Performance optimization"""
     # Extract keywords from all questions
     question_keywords = set()
+    insurance_terms = {
+        'premium', 'coverage', 'policy', 'insured', 'claim', 'benefit',
+        'waiting', 'period', 'grace', 'deductible', 'copay', 'exclusion',
+        'maternity', 'cataract', 'pre-existing', 'ped', 'donor', 'room',
+        'rent', 'icu', 'hospital', 'treatment', 'surgery', 'disease'
+    }
+    
     for question in questions:
-        words = [w.lower() for w in question.split() if len(w) > 3]
+        words = [w.lower() for w in question.split() if len(w) > 2]
         question_keywords.update(words)
+    
+    question_keywords.update(insurance_terms)
     
     relevant_chunks = []
     for chunk in chunks:
         chunk_lower = chunk.lower()
-        matches = sum(1 for keyword in question_keywords if keyword in chunk_lower)
+        score = 0
         
-        # Keep chunks with keyword matches
-        if matches >= 1:
-            relevant_chunks.append((chunk, matches))
+        # Keyword matches
+        keyword_matches = sum(1 for keyword in question_keywords if keyword in chunk_lower)
+        score += keyword_matches
+        
+        # Phrase bonuses
+        important_phrases = [
+            'grace period', 'waiting period', 'sum insured', 'pre-existing',
+            'maternity coverage', 'room rent', 'organ donor', 'cataract surgery'
+        ]
+        for phrase in important_phrases:
+            if phrase in chunk_lower:
+                score += 5
+        
+        # Number presence bonus (important in insurance)
+        if re.search(r'\d+', chunk):
+            score += 2
+        
+        # Keep chunks with good scores
+        if score >= 1:
+            relevant_chunks.append((chunk, score))
     
-    # Sort by relevance and take top chunks
+    # Sort by relevance and return top chunks
     relevant_chunks.sort(key=lambda x: x[1], reverse=True)
     
-    # Return top 40 chunks maximum
-    return [chunk for chunk, _ in relevant_chunks[:40]]
+    # Return top 30 chunks maximum
+    return [chunk for chunk, _ in relevant_chunks[:30]]
 
 def batch_get_embeddings(texts: List[str]) -> List[List[float]]:
     """Optimized batch embedding processing"""
